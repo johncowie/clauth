@@ -33,44 +33,42 @@
   ([code client subject redirect-uri scope object]
      (oauth-code {:code code :client client :subject subject :redirect-uri redirect-uri :scope scope :object object})))
 
-(defonce auth-code-store (atom (store/create-memory-store)))
-
 (defn reset-auth-code-store!
   "mainly for used in testing. Clears out all auth-codes."
-  []
-  (store/reset-store! @auth-code-store))
+  [auth-code-store]
+  (store/reset-store! auth-code-store))
 
 (defn fetch-auth-code
   "Find OAuth auth-code based on the auth-code string"
-  [t]
-  (oauth-code (store/fetch @auth-code-store t)))
+  [auth-code-store t]
+  (oauth-code (store/fetch auth-code-store t)))
 
 (defn revoke-auth-code!
   "Revoke the auth code so it can no longer be used"
-  [code]
-  (store/revoke! @auth-code-store (:code code)))
+  [auth-code-store code]
+  (store/revoke! auth-code-store (:code code)))
 
 (defn store-auth-code
   "Store the given OAuthCode and return it."
-  [t]
-  (store/store! @auth-code-store :code t))
+  [auth-code-store t]
+  (store/store! auth-code-store :code t))
 
 (defn auth-codes
   "Sequence of auth-codes"
-  []
-  (map oauth-code (store/entries @auth-code-store)))
+  [auth-code-store]
+  (map oauth-code (store/entries auth-code-store)))
 
 (defn create-auth-code
   "create a unique auth-code and store it in the auth-code store"
-  ([client subject redirect-uri]
-     (create-auth-code (oauth-code client subject redirect-uri)))
-  ([client subject redirect-uri scope object]
-     (create-auth-code (oauth-code client subject redirect-uri scope object)))
-  ([auth-code]
-     (store-auth-code (oauth-code auth-code))))
+  ([auth-code-store client subject redirect-uri]
+     (create-auth-code auth-code-store (oauth-code client subject redirect-uri)))
+  ([auth-code-store client subject redirect-uri scope object]
+     (create-auth-code auth-code-store (oauth-code client subject redirect-uri scope object)))
+  ([auth-code-store auth-code]
+     (store-auth-code auth-code-store (oauth-code auth-code))))
 
 (defn find-valid-auth-code
   "return a auth-code from the store if it is valid."
-  [t]
-  (if-let [oauth-code (fetch-auth-code t)]
+  [auth-code-store t]
+  (if-let [oauth-code (fetch-auth-code auth-code-store t)]
     (if (token/is-valid? oauth-code) oauth-code)))

@@ -11,6 +11,7 @@
   (:import [org.apache.commons.codec.binary Base64]))
 
 (def token-store (store/create-memory-store))
+(def auth-code-store (store/create-memory-store))
 
 (deftest token-decoration
   (is (= (base/decorate-token {:token "SECRET" :unimportant "forget this"})
@@ -36,7 +37,7 @@
 (deftest requesting-client-owner-token
   (reset-token-store! token-store)
   (client/reset-client-store!)
-  (let [handler (base/token-handler token-store)
+  (let [handler (base/token-handler token-store auth-code-store)
         client (client/register-client)]
     (let [response (handler {:params {:grant_type    "client_credentials"
                                       :client_id     (:client-id client)
@@ -80,7 +81,7 @@
   (reset-token-store! token-store)
   (client/reset-client-store!)
   (user/reset-user-store!)
-  (let [handler (base/token-handler token-store)
+  (let [handler (base/token-handler token-store auth-code-store)
         client (client/register-client)
         user (user/register-user "john@example.com" "password")]
     (is (= (handler {:params {:grant_type    "password"
@@ -148,16 +149,16 @@
 
 (deftest requesting-authorization-code-token
   (reset-token-store! token-store)
-  (reset-auth-code-store!)
+  (reset-auth-code-store! auth-code-store)
   (client/reset-client-store!)
   (user/reset-user-store!)
-  (let [handler (base/token-handler token-store)
+  (let [handler (base/token-handler token-store auth-code-store)
         client (client/register-client)
         user (user/register-user "john@example.com" "password")
         scope "calendar"
         redirect_uri "http://test.com/redirect_uri"
         object {:id "stuff"}]
-    (let [code (create-auth-code client user redirect_uri scope object)
+    (let [code (create-auth-code auth-code-store client user redirect_uri scope object)
           response (handler {:params {:grant_type    "authorization_code"
                                       :code          (:code code)
                                       :redirect_uri  redirect_uri
@@ -170,7 +171,7 @@
              response)
           "url form encoded client credentials"))
 
-    (let [code (create-auth-code client user redirect_uri "calendar" object)]
+    (let [code (create-auth-code auth-code-store client user redirect_uri "calendar" object)]
       (is (= (handler {:params  {:grant_type   "authorization_code"
                                  :redirect_uri redirect_uri
                                  :code         (:code code)}
@@ -189,7 +190,7 @@
                             "\",\"token_type\":\"bearer\"}")})
           "basic authenticated client credentials"))
 
-    (let [code (create-auth-code client user redirect_uri "calendar" object)]
+    (let [code (create-auth-code auth-code-store client user redirect_uri "calendar" object)]
       (is (= (handler {:params {:grant_type    "authorization_code"
                                 :code          (:code code)
                                 :redirect_uri  redirect_uri
@@ -200,7 +201,7 @@
               :body    "{\"error\":\"invalid_client\"}"})
           "should fail on bad client authentication"))
 
-    (let [code (create-auth-code client user redirect_uri "calendar" object)
+    (let [code (create-auth-code auth-code-store client user redirect_uri "calendar" object)
           other (client/register-client)]
       (is (= (handler {:params {:grant_type    "authorization_code"
                                 :code          (:code code)
@@ -243,7 +244,7 @@
             :body    "{\"error\":\"invalid_grant\"}"})
         "should fail with missing code")
 
-    (let [code (create-auth-code client user redirect_uri "calendar" object)]
+    (let [code (create-auth-code auth-code-store client user redirect_uri "calendar" object)]
       (is (= (handler {:params {:grant_type    "authorization_code"
                                 :code          (:code code)
                                 :redirect_uri  redirect_uri
@@ -254,7 +255,7 @@
               :body    "{\"error\":\"invalid_client\"}"})
           "should fail on bad client authentication"))
 
-    (let [code (create-auth-code client user redirect_uri "calendar" object)]
+    (let [code (create-auth-code auth-code-store client user redirect_uri "calendar" object)]
       (is (= (handler {:params {:grant_type   "authorization_code"
                                 :code         (:code code)
                                 :redirect_uri redirect_uri}})
@@ -265,10 +266,10 @@
 
 (deftest requesting-authorization-code
   (reset-token-store! token-store)
-  (reset-auth-code-store!)
+  (reset-auth-code-store! auth-code-store)
   (client/reset-client-store!)
   (user/reset-user-store!)
-  (let [handler (base/authorization-handler token-store)
+  (let [handler (base/authorization-handler token-store auth-code-store)
         client (client/register-client)
         user (user/register-user "john@example.com" "password")
         redirect_uri "http://test.com"
@@ -300,7 +301,7 @@
       (is (= (response :headers) {"Location" "/login"})))
 
     ;; Auto approve
-    (let [handler (base/authorization-handler token-store {:auto-approver (fn [_] true)})
+    (let [handler (base/authorization-handler token-store auth-code-store {:auto-approver (fn [_] true)})
           session_token (create-token token-store client user)
           response (handler {:request-method :get
                              :params         params
@@ -309,7 +310,7 @@
                              :session        {:access_token (:token session_token)}})
           post_auth_redirect_uri ((response :headers) "Location")
           code_string (last (re-find #"code=([^&]+)" post_auth_redirect_uri))
-          auth-code (fetch-auth-code code_string)]
+          auth-code (fetch-auth-code auth-code-store code_string)]
       (is (= (response :status) 302))
       (is (= post_auth_redirect_uri
              (str "http://test.com?state=abcde&code=" code_string))
@@ -365,7 +366,7 @@
           "should return error on unsupported response type"))
 
     (let [session_token (create-token token-store client user)
-          handler (base/authorization-handler token-store {:allowed-response-types ["code"]})
+          handler (base/authorization-handler token-store auth-code-store {:allowed-response-types ["code"]})
           response (handler {:request-method :get
                              :params         (assoc params :response_type "token")
                              :uri            uri
@@ -387,7 +388,7 @@
                                               :csrf-token   "csrftoken"}})
           post_auth_redirect_uri ((response :headers) "Location")
           code_string (last (re-find #"code=([^&]+)" post_auth_redirect_uri))
-          auth-code (fetch-auth-code code_string)]
+          auth-code (fetch-auth-code auth-code-store code_string)]
       (is (= (response :status) 302))
       (is (= post_auth_redirect_uri
              (str "http://test.com?state=abcde&code=" code_string))
@@ -401,7 +402,7 @@
   (reset-token-store! token-store)
   (client/reset-client-store!)
   (user/reset-user-store!)
-  (let [handler (base/authorization-handler token-store)
+  (let [handler (base/authorization-handler token-store auth-code-store)
         client (client/register-client)
         user (user/register-user "john@example.com" "password")
         redirect_uri "http://test.com"
@@ -498,7 +499,7 @@
 (deftest requesting-unsupported-grant
   (reset-token-store! token-store)
   (client/reset-client-store!)
-  (let [handler (base/token-handler token-store)
+  (let [handler (base/token-handler token-store auth-code-store)
         client (client/register-client)]
 
     (is (= (handler {:params {:grant_type "telepathy"}})

@@ -143,20 +143,20 @@
     a user
    :auth-code-revoker a function that revokes a auth-code when passed an
     auth-code record"
-  ([token-store]
-   (token-handler token-store {}))
-  ([token-store client-authenticator user-authenticator]
-   (token-handler token-store {:client-authenticator client-authenticator
-                               :user-authenticator   user-authenticator}))
-  ([token-store config]
+  ([token-store auth-code-store]
+   (token-handler token-store auth-code-store {}))
+  ([token-store auth-code-store client-authenticator user-authenticator]
+   (token-handler token-store auth-code-store {:client-authenticator client-authenticator
+                                               :user-authenticator   user-authenticator}))
+  ([token-store auth-code-store config]
    (fn [req]
      (token-request-handler
        req
        (merge {:client-authenticator client/authenticate-client
                :user-authenticator   user/authenticate-user
                :token-creator        (partial create-token token-store)
-               :auth-code-revoker    revoke-auth-code!
-               :auth-code-lookup     fetch-auth-code} config)))))
+               :auth-code-revoker    (partial revoke-auth-code! auth-code-store)
+               :auth-code-lookup     (partial fetch-auth-code auth-code-store)} config)))))
 
 
 (defn return-to-handler
@@ -284,15 +284,15 @@
     passed a client, user and redirect uri
    :allowed-response-types Defaults to code and token. You can add custome ones here or remove less secure ones such as 'token'
    :auto-approver a function for auto approving authorizations. By default no auto approval is provided. The auto approval functions is passed the request and decides based on your own business rules if the client should be authorized automatically for your user."
-  ([token-store]
-   (authorization-handler token-store {}))
-  ([token-store config]
+  ([token-store auth-code-store]
+   (authorization-handler token-store auth-code-store {}))
+  ([token-store auth-code-store config]
    (let [config (merge {:user-session-required-redirect "/login"
                         :authorization-form             views/authorization-form-handler
                         :client-lookup                  clauth.client/fetch-client
                         :token-lookup                   (partial clauth.token/find-valid-token token-store)
                         :token-creator                  (partial clauth.token/create-token token-store)
-                        :auth-code-creator              clauth.auth-code/create-auth-code
+                        :auth-code-creator              (partial clauth.auth-code/create-auth-code auth-code-store)
                         :allowed-response-types         ["code" "token"]
                         :auto-approver                  (fn [_] false)}
                        config)
