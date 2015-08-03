@@ -32,16 +32,16 @@
             (is (nil? (store/fetch st "item")))))))
 
 (deftest token-store-implementation
-    (reset! token/token-store (base/create-redis-store "tokens" server-conn))
-    (token/reset-token-store!)
-    (is (= 0 (count (token/tokens))) "starts out empty")
+  (let [store (base/create-redis-store "tokens" server-conn)]
+    (token/reset-token-store! store)
+    (is (= 0 (count (token/tokens store))) "starts out empty")
     (let
-        [record (token/oauth-token "my-client" "my-user")]
-      (is (nil? (token/fetch-token (:token record))))
-      (do (token/store-token record)
-          (is (= record (token/fetch-token (:token record))))
-          (is (= 1 (count (token/tokens))) "added one"))))
-  (reset! token/token-store (store/create-memory-store))
+      [record (token/oauth-token "my-client" "my-user")]
+      (is (nil? (token/fetch-token store (:token record))))
+      (do (token/store-token store record)
+          (is (= record (token/fetch-token store (:token record))))
+          (is (= 1 (count (token/tokens store))) "added one")))
+    (token/reset-token-store! store)))
 
 (deftest client-store-implementation
     (reset! client/client-store (base/create-redis-store "clients" server-conn))

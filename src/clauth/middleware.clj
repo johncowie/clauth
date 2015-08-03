@@ -73,8 +73,6 @@
    It supports the following ways of setting the token.
 
    The subject is added to the :access-token key of the request."
-  ([app]
-     (wrap-user-session app token/find-valid-token))
   ([app find-token]
      (fn [req]
        (let [token (req->session-token-string req)]
@@ -204,8 +202,6 @@
 
    Will redirect user to login url if not authenticated and issue a 403 to
    other requests."
-  ([app user-session-required-redirect]
-     (require-user-session! app token/find-valid-token user-session-required-redirect))
   ([app find-token user-session-required-redirect]
      (wrap-user-session
       (fn [req]

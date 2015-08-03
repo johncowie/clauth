@@ -3,8 +3,7 @@
             [crypto.random :as random]
             [clj-time
              [core :as time]
-             [coerce :as coerce]]
-            [cheshire.core :as cheshire]))
+             [coerce :as coerce]]))
 
 (defprotocol Expirable
   "Check if object is valid"
@@ -46,53 +45,51 @@
   ([token client subject expires scope object]
      (oauth-token {:token token :client client :subject subject :expires expires :scope scope :object object})))
 
-(defonce token-store (atom (store/create-memory-store)))
-
 (defn reset-token-store!
   "mainly for used in testing. Clears out all tokens."
-  []
-  (store/reset-store! @token-store))
+  [store]
+  (store/reset-store! store))
 
 (defn fetch-token
   "Find OAuth token based on the token string"
-  [t]
-  (oauth-token (store/fetch @token-store t)))
+  [store t]
+  (oauth-token (store/fetch store t)))
 
 (defn store-token
   "Store the given OAuthToken and return it."
-  [t]
-  (store/store! @token-store :token t))
+  [store t]
+  (store/store! store :token t))
 
 (defn revoke-token
   "Revoke the given OAuth token, given either a token string or object."
-  [t]
+  [store t]
   (cond
-   (instance? java.lang.String t) (store/revoke! @token-store t)
-   :default (store/revoke! @token-store (:token t))))
+   (instance? java.lang.String t) (store/revoke! store t)
+   :default (store/revoke! store (:token t))))
 
 (defn tokens
   "Sequence of tokens"
-  []
-  (map oauth-token (store/entries @token-store)))
+  [store]
+  (map oauth-token (store/entries store)))
 
 (defn create-token
   "create a unique token and store it in the token store"
-  ([client subject]
-     (create-token (oauth-token client subject)))
-  ([client subject scope object]
-     (create-token client subject nil scope object))
-  ([client subject expires scope object]
-     (create-token (oauth-token client subject expires scope object)))
-  ([token]
-     (store-token (oauth-token token))))
+  ([store client subject]
+     (create-token store (oauth-token client subject)))
+  ([store client subject scope object]
+     (create-token store client subject nil scope object))
+  ([store client subject expires scope object]
+     (create-token store (oauth-token client subject expires scope object)))
+  ([store token]
+     (store-token store (oauth-token token))))
 
 (defn find-valid-token
   "return a token from the store if it is valid."
-  [t]
-  (if-let [token (fetch-token t)]
+  [store t]
+  (if-let [token (fetch-token store t)]
     (if (is-valid? token) token)))
 
 (defn find-tokens-for
   "return tokens matching a given criteria"
-  [criteria]
-  (filter #(= criteria (select-keys % (keys criteria))) (tokens)))
+  [store criteria]
+  (filter #(= criteria (select-keys % (keys criteria))) (tokens store)))
