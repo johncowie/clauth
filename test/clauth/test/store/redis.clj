@@ -44,15 +44,15 @@
     (token/reset-token-store! store)))
 
 (deftest client-store-implementation
-    (reset! client/client-store (base/create-redis-store "clients" server-conn))
-    (client/reset-client-store!)
-    (is (= 0 (count (client/clients))) "starts out empty")
+  (let [client-store (base/create-redis-store "clients" server-conn)]
+    (client/reset-client-store! client-store)
+    (is (= 0 (count (client/clients client-store))) "starts out empty")
     (let [record (client/client-app)]
-      (is (nil? (client/fetch-client (:client-id record))))
-      (do (client/store-client record)
-          (is (= record (client/fetch-client (:client-id record))))
-          (is (= 1 (count (client/clients))) "added one"))))
-  (reset! client/client-store (store/create-memory-store))
+      (is (nil? (client/fetch-client client-store (:client-id record))))
+      (do (client/store-client client-store record)
+          (is (= record (client/fetch-client client-store (:client-id record))))
+          (is (= 1 (count (client/clients client-store))) "added one")))
+    (client/reset-client-store! client-store)))
 
 (deftest user-store-implementation
   (let [user-store (base/create-redis-store "users" server-conn)]

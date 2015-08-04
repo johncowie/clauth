@@ -3,8 +3,6 @@
              [token :refer [generate-token]]
              [store :as store]]))
 
-(defonce client-store (atom (store/create-memory-store)))
-
 (defn client-app
   "Create new client-application record"
   ([attrs]
@@ -17,34 +15,34 @@
 
 (defn reset-client-store!
   "mainly for used in testing. Clears out all clients."
-  []
-  (store/reset-store! @client-store))
+  [client-store]
+  (store/reset-store! client-store))
 
 (defn fetch-client
   "Find OAuth token based on the id string"
-  [t]
-  (client-app (store/fetch @client-store t)))
+  [client-store t]
+  (client-app (store/fetch client-store t)))
 
 (defn store-client
   "Store the given ClientApplication and return it."
-  [t]
-  (store/store! @client-store :client-id t))
+  [client-store t]
+  (store/store! client-store :client-id t))
 
 (defn clients
   "Sequence of clients"
-  []
-  (store/entries @client-store))
+  [client-store]
+  (store/entries client-store))
 
 (defn register-client
   "create a unique client and store it in the client store"
-  ([] (register-client nil nil))
-  ([name url]
+  ([client-store] (register-client client-store nil nil))
+  ([client-store name url]
      (let [client (client-app name url)]
-       (store-client client))))
+       (store-client client-store client))))
 
 (defn authenticate-client
   "authenticate client application using client_id and client_secret"
-  [client-id client-secret]
-  (if-let [client (fetch-client client-id)]
+  [client-store client-id client-secret]
+  (if-let [client (fetch-client client-store client-id)]
     (if (= client-secret (:client-secret client))
       client)))

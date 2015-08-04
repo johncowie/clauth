@@ -13,6 +13,7 @@
 (def token-store (store/create-memory-store))
 (def auth-code-store (store/create-memory-store))
 (def user-store (store/create-memory-store))
+(def client-store (store/create-memory-store))
 
 (deftest token-decoration
   (is (= (base/decorate-token {:token "SECRET" :unimportant "forget this"})
@@ -37,9 +38,9 @@
 
 (deftest requesting-client-owner-token
   (reset-token-store! token-store)
-  (client/reset-client-store!)
-  (let [handler (base/token-handler user-store token-store auth-code-store)
-        client (client/register-client)]
+  (client/reset-client-store! client-store)
+  (let [handler (base/token-handler user-store client-store token-store auth-code-store)
+        client (client/register-client client-store)]
     (let [response (handler {:params {:grant_type    "client_credentials"
                                       :client_id     (:client-id client)
                                       :client_secret (:client-secret client)}})]
@@ -80,10 +81,10 @@
 
 (deftest requesting-resource-owner-password-credentials-token
   (reset-token-store! token-store)
-  (client/reset-client-store!)
+  (client/reset-client-store! client-store)
   (user/reset-user-store! user-store)
-  (let [handler (base/token-handler user-store token-store auth-code-store)
-        client (client/register-client)
+  (let [handler (base/token-handler user-store client-store token-store auth-code-store)
+        client (client/register-client client-store)
         user (user/register-user user-store "john@example.com" "password")]
     (is (= (handler {:params {:grant_type    "password"
                               :username      "john@example.com"
@@ -151,10 +152,10 @@
 (deftest requesting-authorization-code-token
   (reset-token-store! token-store)
   (reset-auth-code-store! auth-code-store)
-  (client/reset-client-store!)
+  (client/reset-client-store! client-store)
   (user/reset-user-store! user-store)
-  (let [handler (base/token-handler user-store token-store auth-code-store)
-        client (client/register-client)
+  (let [handler (base/token-handler user-store client-store token-store auth-code-store)
+        client (client/register-client client-store)
         user (user/register-user user-store "john@example.com" "password")
         scope "calendar"
         redirect_uri "http://test.com/redirect_uri"
@@ -203,7 +204,7 @@
           "should fail on bad client authentication"))
 
     (let [code (create-auth-code auth-code-store client user redirect_uri "calendar" object)
-          other (client/register-client)]
+          other (client/register-client client-store)]
       (is (= (handler {:params {:grant_type    "authorization_code"
                                 :code          (:code code)
                                 :redirect_uri  redirect_uri
@@ -268,10 +269,10 @@
 (deftest requesting-authorization-code
   (reset-token-store! token-store)
   (reset-auth-code-store! auth-code-store)
-  (client/reset-client-store!)
+  (client/reset-client-store! client-store)
   (user/reset-user-store! user-store)
-  (let [handler (base/authorization-handler token-store auth-code-store)
-        client (client/register-client)
+  (let [handler (base/authorization-handler client-store token-store auth-code-store)
+        client (client/register-client client-store)
         user (user/register-user user-store "john@example.com" "password")
         redirect_uri "http://test.com"
         uri "/authorize"
@@ -302,7 +303,7 @@
       (is (= (response :headers) {"Location" "/login"})))
 
     ;; Auto approve
-    (let [handler (base/authorization-handler token-store auth-code-store {:auto-approver (fn [_] true)})
+    (let [handler (base/authorization-handler client-store token-store auth-code-store {:auto-approver (fn [_] true)})
           session_token (create-token token-store client user)
           response (handler {:request-method :get
                              :params         params
@@ -367,7 +368,7 @@
           "should return error on unsupported response type"))
 
     (let [session_token (create-token token-store client user)
-          handler (base/authorization-handler token-store auth-code-store {:allowed-response-types ["code"]})
+          handler (base/authorization-handler client-store token-store auth-code-store {:allowed-response-types ["code"]})
           response (handler {:request-method :get
                              :params         (assoc params :response_type "token")
                              :uri            uri
@@ -401,10 +402,10 @@
 
 (deftest requesting-implicit-authorization
   (reset-token-store! token-store)
-  (client/reset-client-store!)
+  (client/reset-client-store! client-store)
   (user/reset-user-store! user-store)
-  (let [handler (base/authorization-handler token-store auth-code-store)
-        client (client/register-client)
+  (let [handler (base/authorization-handler client-store token-store auth-code-store)
+        client (client/register-client client-store)
         user (user/register-user user-store "john@example.com" "password")
         redirect_uri "http://test.com"
         uri "/authorize"
@@ -499,9 +500,9 @@
 
 (deftest requesting-unsupported-grant
   (reset-token-store! token-store)
-  (client/reset-client-store!)
-  (let [handler (base/token-handler user-store token-store auth-code-store)
-        client (client/register-client)]
+  (client/reset-client-store! client-store)
+  (let [handler (base/token-handler user-store client-store token-store auth-code-store)
+        client (client/register-client client-store)]
 
     (is (= (handler {:params {:grant_type "telepathy"}})
            {:status  400
@@ -517,11 +518,11 @@
 
 (deftest interactive-login-session
   (reset-token-store! token-store)
-  (client/reset-client-store!)
+  (client/reset-client-store! client-store)
   (user/reset-user-store! user-store)
-  (let [client (client/register-client)
+  (let [client (client/register-client client-store)
         handler (base/login-handler user-store token-store {:login-form (fn [_] {:body "login form"})
-                                                 :client     client})
+                                                            :client     client})
         user (user/register-user user-store "john@example.com" "password")
         response (handler {:request-method :post
                            :session        {:csrf-token "csrftoken"}
@@ -567,7 +568,7 @@
     (is (not (base/logged-in? req)) "should not be marked as logged in")
     (is (nil? (base/current-user req)) "should not have a current user"))
 
-  (let [client (client/register-client)
+  (let [client (client/register-client client-store)
         user (user/register-user user-store "john@example.com" "password")
         session-token (create-token token-store client user)
         req {:access-token session-token}]

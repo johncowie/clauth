@@ -41,8 +41,8 @@
    :body (login-form req)})
 
 (defn authorization-form
-  ([req]
-     (let [client (fetch-client ((req :params) :client_id))]
+  ([req client-lookup]
+     (let [client (client-lookup ((req :params) :client_id))]
        (html
         (form-to [:post (req :uri)]
                  (csrf-field req)
@@ -57,10 +57,10 @@
 
 (defn authorization-form-handler
   "Login form ring handler"
-  [req]
+  [req client-lookup]
   {:status 200
    :headers {"Content-Type" "text/html"}
-   :body (authorization-form req)})
+   :body (authorization-form req client-lookup)})
 
 (defn error-page
   "returns a simple error page"
