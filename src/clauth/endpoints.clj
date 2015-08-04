@@ -287,9 +287,10 @@
   ([client-store token-store auth-code-store]
    (authorization-handler client-store token-store auth-code-store {}))
   ([client-store token-store auth-code-store config]
-   (let [config (merge {:user-session-required-redirect "/login"
-                        :authorization-form             views/authorization-form-handler
-                        :client-lookup                  (partial clauth.client/fetch-client client-store)
+   (let [default-client-lookup (partial clauth.client/fetch-client client-store)
+         config (merge {:user-session-required-redirect "/login"
+                        :authorization-form             (views/authorization-form-handler default-client-lookup)
+                        :client-lookup                  default-client-lookup
                         :token-lookup                   (partial clauth.token/find-valid-token token-store)
                         :token-creator                  (partial clauth.token/create-token token-store)
                         :auth-code-creator              (partial clauth.auth-code/create-auth-code auth-code-store)
@@ -309,7 +310,7 @@
                    (if (= :get (req :request-method))
                      (if (auto-approver req)
                        (authorization-request-handler req config)
-                       (authorization-form req client-lookup))
+                       (authorization-form req))
                      (authorization-request-handler req config))
                    (authorization-error-response req "unsupported_response_type")))
                (authorization-error-response req "unauthorized_client"))

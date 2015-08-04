@@ -57,10 +57,11 @@
 
 (defn authorization-form-handler
   "Login form ring handler"
-  [req client-lookup]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body (authorization-form req client-lookup)})
+  [client-lookup]
+  (fn [req]
+    {:status  200
+     :headers {"Content-Type" "text/html"}
+     :body    (authorization-form req client-lookup)}))
 
 (defn error-page
   "returns a simple error page"
