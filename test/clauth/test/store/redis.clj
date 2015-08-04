@@ -55,12 +55,12 @@
   (reset! client/client-store (store/create-memory-store))
 
 (deftest user-store-implementation
-    (reset! user/user-store (base/create-redis-store "users" server-conn))
-    (user/reset-user-store!)
-    (is (= 0 (count (user/users))) "starts out empty")
+  (let [user-store (base/create-redis-store "users" server-conn)]
+    (user/reset-user-store! user-store)
+    (is (= 0 (count (user/users user-store))) "starts out empty")
     (let [record (user/new-user "john@example.com" "password")]
-      (is (nil? (user/fetch-user "john@example.com")))
-      (do (user/store-user record)
-          (is (= record (user/fetch-user "john@example.com")))
-          (is (= 1 (count (user/users))) "added one"))))
-  (reset! user/user-store (store/create-memory-store))
+      (is (nil? (user/fetch-user user-store "john@example.com")))
+      (do (user/store-user user-store record)
+          (is (= record (user/fetch-user user-store "john@example.com")))
+          (is (= 1 (count (user/users user-store))) "added one")))
+    (user/reset-user-store! user-store)))

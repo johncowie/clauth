@@ -143,17 +143,17 @@
     a user
    :auth-code-revoker a function that revokes a auth-code when passed an
     auth-code record"
-  ([token-store auth-code-store]
-   (token-handler token-store auth-code-store {}))
-  ([token-store auth-code-store client-authenticator user-authenticator]
-   (token-handler token-store auth-code-store {:client-authenticator client-authenticator
-                                               :user-authenticator   user-authenticator}))
-  ([token-store auth-code-store config]
+  ([user-store token-store auth-code-store]
+   (token-handler user-store token-store auth-code-store {}))
+  ([user-store token-store auth-code-store client-authenticator user-authenticator]
+   (token-handler user-store token-store auth-code-store {:client-authenticator client-authenticator
+                                                          :user-authenticator   user-authenticator}))
+  ([user-store token-store auth-code-store config]
    (fn [req]
      (token-request-handler
        req
        (merge {:client-authenticator client/authenticate-client
-               :user-authenticator   user/authenticate-user
+               :user-authenticator   (partial user/authenticate-user user-store)
                :token-creator        (partial create-token token-store)
                :auth-code-revoker    (partial revoke-auth-code! auth-code-store)
                :auth-code-lookup     (partial fetch-auth-code auth-code-store)} config)))))
@@ -188,10 +188,10 @@
     username and password combo
    :token-creator a function that creates a new token when passed a client and
     a user"
-  [token-store config]
+  [user-store token-store config]
   (let [config (merge {:login-destination  "/"
                        :login-form         views/login-form-handler
-                       :user-authenticator clauth.user/authenticate-user
+                       :user-authenticator (partial clauth.user/authenticate-user user-store)
                        :token-creator      (partial clauth.token/create-token token-store)} config)
         {:keys [client login-form user-authenticator token-creator login-destination]} config]
     (mw/csrf-protect!

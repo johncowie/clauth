@@ -1,9 +1,6 @@
 (ns clauth.user
-  (:require [clauth.store :as store]
-            [cheshire.core :as cheshire])
+  (:require [clauth.store :as store])
   (:import [org.mindrot.jbcrypt BCrypt]))
-
-(defonce user-store (atom (store/create-memory-store)))
 
 (defn bcrypt
   "Perform BCrypt hash of password"
@@ -29,35 +26,35 @@
 
 (defn reset-user-store!
   "mainly for used in testing. Clears out all users."
-  []
-  (store/reset-store! @user-store))
+  [user-store]
+  (store/reset-store! user-store))
 
 (defn fetch-user
   "Find user based on login"
-  [t]
-  (new-user (store/fetch @user-store t)))
+  [user-store t]
+  (new-user (store/fetch user-store t)))
 
 (defn store-user
   "Store the given User and return it."
-  [t]
-  (store/store! @user-store :login t))
+  [user-store t]
+  (store/store! user-store :login t))
 
 (defn users
   "Sequence of users"
-  []
-  (store/entries @user-store))
+  [user-store]
+  (store/entries user-store))
 
 (defn register-user
   "create a unique user and store it in the user store"
-  ([attrs]
-     (store-user (new-user attrs)))
-  ([login password] (register-user login password nil nil))
-  ([login password name url]
-     (register-user (new-user login password name url))))
+  ([user-store attrs]
+     (store-user user-store (new-user attrs)))
+  ([user-store login password] (register-user user-store login password nil nil))
+  ([user-store login password name url]
+     (register-user user-store (new-user login password name url))))
 
 (defn authenticate-user
   "authenticate user application using login and password"
-  [login password]
-  (if-let [user (fetch-user login)]
+  [user-store login password]
+  (if-let [user (fetch-user user-store login)]
     (if (valid-password? password (:password user))
       user)))
