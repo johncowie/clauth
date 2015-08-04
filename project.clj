@@ -1,4 +1,4 @@
-(defproject johncowie/clauth "2.0.1-SNAPSHOT"
+(defproject johncowie/clauth "2.0.2-SNAPSHOT"
   :description "OAuth2 based authentication library for Ring"
   :url "http://github.com/pelle/clauth"
   :dependencies [[org.clojure/clojure "1.5.1"]
